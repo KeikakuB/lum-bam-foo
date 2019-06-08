@@ -17,19 +17,24 @@ ROLLS_TO_SKILL = {
 }
 
 class BloodBowlDiceSequenceVisitor(NodeVisitor):
-    def __init__(self, has_reroll=True):
+    def __init__(self, has_team_reroll=True, debug=False):
+        self.debug = debug
         self.skills = set()
         self.used_skills = set()
-        self.has_reroll = has_reroll
+        self.has_team_reroll = has_team_reroll
         self.result = True
 
     def try_use_reroll(self, roll):
         skill = ROLLS_TO_SKILL[roll]
         if skill in self.skills and skill not in self.used_skills:
+            if self.debug:
+                print(f"\tUsing {skill} reroll")
             self.used_skills.add(skill)
             return True
-        if self.has_reroll:
-            self.has_reroll = False
+        if self.has_team_reroll:
+            if self.debug:
+                print("\tUsing team reroll")
+            self.has_team_reroll = False
             return True
         return False
 
@@ -42,22 +47,29 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
         if node.expr_name in ROLLS:
             die_roll = node.children[0].text
             needed_value = int(die_roll)
+            if self.debug:
+                print(f"{node.expr_name}: {node.text}")
+                print(f"\tRolling d6, need {needed_value}+")
             rng_value = random.randint(1, 6)
-            #print(f"Rolling d6, need {needed_value}+")
-            if rng_value >= needed_value:
-                #print(f"Success: Rolled {rng_value}")
-                pass
-            else:
-                #print(f"Fail: Rolled {rng_value}")
+            if rng_value < needed_value:
+                if self.debug:
+                    print(f"\tFail: Rolled {rng_value}")
                 if self.try_use_reroll(node.expr_name):
+                    if self.debug:
+                        print(f"\tRerolling d6, need {needed_value}+")
                     rng_value = random.randint(1, 6)
-                    #print(f"Rolling d6, need {needed_value}+")
-                    if rng_value >= needed_value:
-                        pass
-                    else:
+                    if rng_value < needed_value:
+                        if self.debug:
+                            print(f"\tFail: Rerolled {rng_value}")
                         self.result = False
+                    else:
+                        if self.debug:
+                            print(f"\tSuccess: Rerolled {rng_value}")
                 else:
                     self.result = False
+            else:
+                if self.debug:
+                    print(f"\tSuccess: Rolled {rng_value}")
         return True
 
 @click.command()
@@ -132,16 +144,16 @@ def cli(tokens, test_count):
     print_results(tree, test_count, False)
     print_results(tree, test_count, True)
 
-def print_results(tree, test_count, has_reroll):
+def print_results(tree, test_count, has_team_reroll):
     n_successes = 0
     n_fails = 0
     for i in range(test_count):
-        iv = BloodBowlDiceSequenceVisitor(has_reroll)
+        iv = BloodBowlDiceSequenceVisitor(has_team_reroll, i == 0)
         if iv.visit(tree):
             n_successes += 1
         else:
             n_fails += 1
-    if has_reroll:
+    if has_team_reroll:
         msg = "with team reroll"
     else:
         msg = "without team reroll"
