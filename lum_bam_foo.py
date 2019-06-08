@@ -28,6 +28,7 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
         self.used_skills = set()
         self.has_team_reroll = False
         self.used_team_reroll = False
+        self.started_rolling = False
         self.result = True
 
     def try_use_reroll(self, roll):
@@ -64,10 +65,19 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
             return False
         if node.expr_name == "team_reroll":
             self.has_team_reroll = True
+            logger.debug(f"Has team reroll")
+        if node.expr_name == "sequence" and self.started_rolling:
+            # This is a new player, so reset the skills
+            logger.debug("Resetting Player skills")
+            self.started_rolling = False
+            self.skills = set()
+            self.used_skills = set()
         if node.expr_name.startswith(SKILL_PREFIX):
             skill = node.expr_name[len(SKILL_PREFIX):]
+            logger.debug(f"Adding player skill: {skill}")
             self.skills.add(skill)
         if node.expr_name in ROLLS:
+            self.started_rolling = True
             die_roll = node.children[0].text
             needed_value = int(die_roll)
             logger.debug(f"{node.expr_name}: {node.text}")
@@ -104,10 +114,10 @@ def cli(tokens, test_count, verbose):
     random.seed()
     grammar = Grammar(
         r"""
-        expr = sequences
-        sequences = (team_reroll ws? comma)? ws? sequence (ws? comma ws? sequences)*
+        expr = (team_reroll ws? comma ws?)? sequences
+        sequences = sequence (ws? comma ws? sequences)*
         sequence = skills? rolls
-        skills = skill+ colon
+        skills = skill+ colon ws?
         rolls = roll+
 
         team_reroll = ~r"(rr|re?r?o?l?l?)\s*"
@@ -168,6 +178,7 @@ def cli(tokens, test_count, verbose):
     n_successes = 0
     n_fails = 0
     for i in range(test_count):
+        logger.debug(f"Running test: {i}")
         iv = BloodBowlDiceSequenceVisitor()
         if iv.visit(tree):
             n_successes += 1
