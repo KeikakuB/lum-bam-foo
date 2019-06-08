@@ -99,8 +99,100 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 logger.debug(f"\tSuccess: Rolled {rng_value}")
         return True
 
+class BloodBowlProbabilityComputer:
+    def __init__(self, test_count, seed=None):
+        self.test_count = test_count
+        self.seed = seed
+
+        self.grammar = Grammar(
+            r"""
+            expr = (team_reroll ws? comma ws?)? sequences
+            sequences = sequence (ws? comma ws? sequences)*
+            sequence = skills? rolls
+            skills = skill+ colon ws?
+            rolls = roll+
+
+            team_reroll = ~r"(rr|re?r?o?l?l?)\s*"
+
+
+            die_roll = ~r"[2-6]"
+            generic_roll = die_roll ~r"\s*"
+            dodge_roll = die_roll ~r"do?d?g?e?\s*"
+            gfi_roll = die_roll ~r"(gf?i?|go?f?o?r?i?t?)\s*"
+            catch_roll = die_roll ~r"ca?t?c?h?\s*"
+            pass_roll = die_roll ~r"pas?s?\s*"
+            pickup_roll = die_roll ~r"pic?k?u?p?\s*"
+            roll = dodge_roll / gfi_roll / catch_roll / pass_roll / pickup_roll / generic_roll / block / foul
+
+            foul = lbra ~r"foul\s*" armor_break rbra ws?
+            block = lbra block_result+ block_dice (~r"armor\s*" armor_break)? rbra ws?
+            armor_break = armor_value ws armor_break_result*
+            armor_value_single_digit = ~r"[1-9]"
+            armor_value_double_digits = ~r"1[1-2]"
+            armor_value = armor_value_double_digits / armor_value_single_digit
+
+            armor_break_result_stun = ~r"stun\s*"
+            armor_break_result_ko = ~r"ko\s*"
+            armor_break_result_cas = ~r"cas\s*"
+            armor_break_result = armor_break_result_stun / armor_break_result_ko / armor_break_result_cas
+
+            block_dice = ~r"-?[1-3]D" ws?
+
+            block_result_pow = ~r"pow\s*"
+            block_result_pow_push = ~r"pp\s*"
+            block_result_push = ~r"push\s*"
+            block_result_both_down = ~r"bd\s*"
+            block_result_skull = ~r"skull\s*"
+
+            block_result = block_result_pow / block_result_pow_push / block_result_push / block_result_both_down / block_result_skull
+
+            skill_dodge = ~r"do?d?g?e?\s*"
+            skill_sure_hands = ~r"(sh|sure ha?n?d?s?)\s*"
+            skill_sure_feet = ~r"(sf|sure fe?e?t?)\s*"
+            skill_pass = ~r"pas?s?\s*"
+            skill_catch = ~r"ca?t?c?h?\s*"
+            skill_pro = ~r"pro?\s*"
+            skill_loner = ~r"lo?n?e?r?\s*"
+
+            skill = skill_dodge / skill_sure_hands / skill_sure_feet / skill_pass / skill_catch / skill_pro / skill_loner
+
+            ws = ~r"\s*"
+            colon = ":"
+            comma = ","
+            lpar = "("
+            rpar = ")"
+            lbra = "["
+            rbra = "]"
+        """)
+
+    def get_probability(self, tokens):
+        if self.seed == None:
+            random.seed()
+        else:
+            random.seed(self.seed)
+        tree = self.grammar.parse(tokens)
+        logger.info(f"Running {self.test_count} tests on {tokens}")
+        n_successes = 0
+        n_fails = 0
+        for i in range(self.test_count):
+            logger.debug(f"Running test: {i}")
+            iv = BloodBowlDiceSequenceVisitor()
+            if iv.visit(tree):
+                n_successes += 1
+            else:
+                n_fails += 1
+
+        if iv.has_team_reroll:
+            msg = "with team reroll"
+        else:
+            msg = "without team reroll"
+        n_total = n_successes + n_fails
+        success_probability = n_successes / n_total
+        logger.info(f"Success Probability {msg}")
+        return success_probability
+
 @click.command()
-@click.argument('tokens', nargs=-1)
+@click.argument('tokens')
 @click.option('-t', '--test_count', default=10000)
 @click.option('-v', '--verbose', is_flag=True)
 def cli(tokens, test_count, verbose):
@@ -110,86 +202,7 @@ def cli(tokens, test_count, verbose):
     # TODO ensure that impossible sequences (constrained by the game rules) cannot be written out, within reason
     if verbose:
         logger.setLevel(logging.DEBUG)
-
-    random.seed()
-    grammar = Grammar(
-        r"""
-        expr = (team_reroll ws? comma ws?)? sequences
-        sequences = sequence (ws? comma ws? sequences)*
-        sequence = skills? rolls
-        skills = skill+ colon ws?
-        rolls = roll+
-
-        team_reroll = ~r"(rr|re?r?o?l?l?)\s*"
-
-        foul = lbra ~r"foul\s*" armor_break rbra ws?
-        block = lbra block_result+ block_dice (~r"armor\s*" armor_break)? rbra ws?
-        armor_break = armor_value ws armor_break_result*
-        armor_value_single_digit = ~r"[1-9]"
-        armor_value_double_digits = ~r"1[1-2]"
-        armor_value = armor_value_double_digits / armor_value_single_digit
-
-        armor_break_result_stun = ~r"stun\s*"
-        armor_break_result_ko = ~r"ko\s*"
-        armor_break_result_cas = ~r"cas\s*"
-        armor_break_result = armor_break_result_stun / armor_break_result_ko / armor_break_result_cas
-
-        block_dice = ~r"-?[1-3]D" ws?
-
-        block_result_pow = ~r"pow\s*"
-        block_result_pow_push = ~r"pp\s*"
-        block_result_push = ~r"push\s*"
-        block_result_both_down = ~r"bd\s*"
-        block_result_skull = ~r"skull\s*"
-
-        block_result = block_result_pow / block_result_pow_push / block_result_push / block_result_both_down / block_result_skull
-
-        die_roll = ~r"[2-6]"
-        generic_roll = die_roll ~r"\s*"
-        dodge_roll = die_roll ~r"do?d?g?e?\s*"
-        gfi_roll = die_roll ~r"(gf?i?|go?f?o?r?i?t?)\s*"
-        catch_roll = die_roll ~r"ca?t?c?h?\s*"
-        pass_roll = die_roll ~r"pas?s?\s*"
-        pickup_roll = die_roll ~r"pic?k?u?p?\s*"
-        roll = dodge_roll / gfi_roll / catch_roll / pass_roll / pickup_roll / generic_roll / block / foul
-
-        skill_dodge = ~r"do?d?g?e?\s*"
-        skill_sure_hands = ~r"(sh|sure ha?n?d?s?)\s*"
-        skill_sure_feet = ~r"(sf|sure fe?e?t?)\s*"
-        skill_pass = ~r"pas?s?\s*"
-        skill_catch = ~r"ca?t?c?h?\s*"
-        skill_pro = ~r"pro?\s*"
-        skill_loner = ~r"lo?n?e?r?\s*"
-
-        skill = skill_dodge / skill_sure_hands / skill_sure_feet / skill_pass / skill_catch / skill_pro / skill_loner
-
-        ws = ~r"\s*"
-        colon = ":"
-        comma = ","
-        lpar = "("
-        rpar = ")"
-        lbra = "["
-        rbra = "]"
-    """)
-    tree = grammar.parse(" ".join(tokens))
-    # print(tree)
-
-    logger.info(f"Running {test_count} tests on {tokens}")
-    n_successes = 0
-    n_fails = 0
-    for i in range(test_count):
-        logger.debug(f"Running test: {i}")
-        iv = BloodBowlDiceSequenceVisitor()
-        if iv.visit(tree):
-            n_successes += 1
-        else:
-            n_fails += 1
-
-    if iv.has_team_reroll:
-        msg = "with team reroll"
-    else:
-        msg = "without team reroll"
-    n_total = n_successes + n_fails
-    success_probability = n_successes / n_total
-    logger.info(f"Success Probability {msg}")
+    logger.debug(f"'{tokens}'")
+    comp = BloodBowlProbabilityComputer(test_count)
+    success_probability = comp.get_probability(tokens)
     print(success_probability)
