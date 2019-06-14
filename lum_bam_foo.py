@@ -292,10 +292,6 @@ class BloodBowlProbabilityComputer:
 @click.option('-t', '--test_count', default=10000)
 @click.option('-v', '--verbose', is_flag=True)
 def cli(tokens, test_count, verbose):
-    # TODO add MB and PL and DP for blocks/fouls
-    # TODO make language more readable / easy to write
-    # TODO Allow for mathematical and as well statistical methods for computing the probability of the given expression
-    # TODO ensure that impossible sequences (constrained by the game rules) cannot be written out, within reason
     if verbose:
         logger.setLevel(logging.DEBUG)
     logger.debug(f"'{tokens}'")
