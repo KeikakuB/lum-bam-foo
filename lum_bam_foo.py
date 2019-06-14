@@ -11,6 +11,7 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('lum_bam_foo')
 
 BLOCK_DICE_RESULTS = ["block_result_skull", "block_result_both_down", "block_result_push", "block_result_push", "block_result_pow_push", "block_result_pow"]
+INJURY_RESULTS = ["armor_break_result_stun", "armor_break_result_ko", "armor_break_result_cas"]
 
 SKILL_PREFIX = "skill_"
 ROLLS = ["generic_roll", "dodge_roll", "gfi_roll", "catch_roll", "pass_roll", "pickup_roll"]
@@ -45,10 +46,10 @@ GRAMMAR = Grammar(
     roll = dodge_roll / gfi_roll / catch_roll / pass_roll / pickup_roll / generic_roll / block / foul
 
     foul = lbra ~r"foul\s*" armor_break rbra ws?
-    block = lbra block_result+ block_dice (~r"av\s*" armor_break)? rbra ws?
-    armor_break = armor_value ws armor_break_result*
+    block = lbra block_result+ block_dice (~r"av\s*" armor_break)? ws? rbra ws?
+    armor_break = armor_value ws? armor_break_result*
     armor_value_single_digit = ~r"[1-9]"
-    armor_value_double_digits = ~r"1[1-2]"
+    armor_value_double_digits = ~r"1[0-2]"
     armor_value = armor_value_double_digits / armor_value_single_digit
 
     armor_break_result_stun = ~r"stun\s*"
@@ -84,7 +85,6 @@ GRAMMAR = Grammar(
     lbra = "["
     rbra = "]"
 """)
-
 
 class BloodBowlDiceSequenceVisitor(NodeVisitor):
     def __init__(self):
@@ -124,6 +124,18 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 logger.debug("\tFailed to use pro reroll")
                 return False
         return False
+
+    def do_armor_break_roll(self, armor_value):
+        roll = random.randint(1, 6) + random.randint(1, 6)
+        broke_armor = roll > armor_value
+        if broke_armor:
+            logger.debug(f"Broke armor with {roll}")
+        else:
+            logger.debug(f"Didn't break armor with {roll}")
+        return broke_armor
+
+    def do_injury_roll(self):
+        return True
 
     def check_block_dice(self, desired_block_results, n_block_dice, is_red_dice):
         dice_rolls = []
@@ -192,7 +204,7 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 desired_block_results.append(b.children[0].expr_name)
             logger.debug(desired_block_results)
             block_dice = node.children[2]
-            block_dice_value = int(block_dice.text[:-1])
+            block_dice_value = int(block_dice.text.strip()[:-1])
             is_red_dice = block_dice_value < 0
             n_block_dice = abs(block_dice_value)
             if not self.check_block_dice(desired_block_results, n_block_dice, is_red_dice):
@@ -202,10 +214,22 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 else:
                     self.result = False
 
-            # optional: armor_break
-            # optional: armor_break_results
-        return True
+            if self.result:
+                # optional: armor_break
+                try:
+                    logger.debug("Checking armor break")
+                    armor_break_node  = node.children[3]
+                    armor_break_value = int(armor_break_node.children[0].children[1].text.strip())
+                    logger.debug(armor_break_value)
+                    if not self.do_armor_break_roll(armor_break_value):
+                        self.result = False
+                except:
+                    pass
 
+                # optional: injury results
+                if self.result:
+                    pass
+        return True
 
 class BloodBowlProbabilityComputer:
     def __init__(self, test_count, seed=None):
