@@ -44,7 +44,7 @@ GRAMMAR = Grammar(
     pickup_roll = die_roll ~r"pic?k?u?p?\s*"
     roll = dodge_roll / gfi_roll / catch_roll / pass_roll / pickup_roll / generic_roll / block / foul
 
-    foul = lbra ~r"foul\s*" armor_break rbra ws?
+    foul = lbra ~r"foul\s*" (~r"av\s*" armor_break)? ws? rbra ws?
     block = lbra block_results block_dice (~r"av\s*" armor_break)? ws? rbra ws?
     armor_break = armor_value ws? armor_break_results
     armor_value_single_digit = ~r"[1-9]"
@@ -253,6 +253,33 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                                 self.result = False
                     except:
                         pass
+        if node.expr_name == "foul":
+            self.started_rolling = True
+            logger.debug("Fouling")
+            try:
+                logger.debug("Checking armor break")
+                armor_break_value = int(node.children[2].children[0].children[1].children[0].text.strip())
+                logger.debug(armor_break_value)
+                if not self.do_armor_break_roll(armor_break_value):
+                    self.result = False
+            except:
+                pass
+
+            # optional: injury results
+            if self.result:
+                try:
+                    logger.debug("Injuring")
+                    injury_results_node = node.children[2].children[0].children[1].children[2]
+                    desired_injury_results = []
+                    for r in injury_results_node.children:
+                        desired_injury_results.append(r.children[0].expr_name)
+                    if desired_injury_results:
+                        logger.debug("Checking injury")
+                        logger.debug(f"Desired Injury Results: {desired_injury_results}")
+                        if not self.do_injury_roll(desired_injury_results):
+                            self.result = False
+                except:
+                    pass
         return True
 
 class BloodBowlProbabilityComputer:
