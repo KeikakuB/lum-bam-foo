@@ -57,7 +57,7 @@ GRAMMAR = Grammar(
     armor_break_result_cas = ~r"cas\s*"
     armor_break_result = armor_break_result_stun / armor_break_result_ko / armor_break_result_cas
 
-    block_dice = ~r"-?[1-3]D" ws?
+    block_dice = ~r"(-[2-3]|[1-3])D" ws?
 
     block_results = block_result+
     block_result_pow = ~r"pow\s*"
