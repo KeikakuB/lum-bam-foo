@@ -7,7 +7,8 @@ setup(
     python_requires='>=3',
     install_requires=[
         'click',
-        'parsimonious'
+        'parsimonious',
+        'pytest'
         ],
     entry_points='''
         [console_scripts]

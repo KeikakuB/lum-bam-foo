@@ -23,3 +23,6 @@ def test_first():
     check("rr,5", 4, 9)
     check("rr,6", 25, 36)
 
+    check("[pow pp 1D]", 2, 3)
+    check("[pow pp push 1D]", 1, 3)
+    check("[pow 1D]", 5, 6)
