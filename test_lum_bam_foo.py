@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from lum_bam_foo import BloodBowlProbabilityComputer
 
 import math
