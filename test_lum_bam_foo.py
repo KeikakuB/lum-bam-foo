@@ -6,9 +6,14 @@ import fractions
 relative_tolerance = 0.01
 comp = BloodBowlProbabilityComputer(25000, 123917280)
 
+
 def check(tokens, failure_numerator, failure_denominator):
-    success_probability_fraction = fractions.Fraction(failure_denominator - failure_numerator, failure_denominator)
-    assert math.isclose(comp.get_probability(tokens), success_probability_fraction, rel_tol=relative_tolerance)
+    success_probability_fraction = fractions.Fraction(
+        failure_denominator - failure_numerator, failure_denominator)
+    assert math.isclose(comp.get_probability(tokens),
+                        success_probability_fraction,
+                        rel_tol=relative_tolerance)
+
 
 def test_first():
     check("2", 1, 6)

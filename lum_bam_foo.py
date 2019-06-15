@@ -10,11 +10,19 @@ FORMAT = '%(levelname)-8s:%(funcName)-20s %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger('lum_bam_foo')
 
-BLOCK_DICE_RESULTS = ["block_result_skull", "block_result_both_down", "block_result_push", "block_result_push", "block_result_pow_push", "block_result_pow"]
-INJURY_RESULTS = ["armor_break_result_stun", "armor_break_result_ko", "armor_break_result_cas"]
+BLOCK_DICE_RESULTS = [
+    "block_result_skull", "block_result_both_down", "block_result_push",
+    "block_result_push", "block_result_pow_push", "block_result_pow"
+]
+INJURY_RESULTS = [
+    "armor_break_result_stun", "armor_break_result_ko", "armor_break_result_cas"
+]
 
 SKILL_PREFIX = "skill_"
-ROLLS = ["generic_roll", "dodge_roll", "gfi_roll", "catch_roll", "pass_roll", "pickup_roll"]
+ROLLS = [
+    "generic_roll", "dodge_roll", "gfi_roll", "catch_roll", "pass_roll",
+    "pickup_roll"
+]
 
 ROLLS_TO_SKILL = {
     "generic_roll": None,
@@ -25,8 +33,7 @@ ROLLS_TO_SKILL = {
     "pickup_roll": "sure_hands"
 }
 
-GRAMMAR = Grammar(
-    r"""
+GRAMMAR = Grammar(r"""
     expr = (team_reroll ws? comma ws?)? sequences
     sequences = sequence (ws? comma ws? sequences)*
     sequence = skills? rolls
@@ -87,7 +94,9 @@ GRAMMAR = Grammar(
     rbra = "]"
 """)
 
+
 class BloodBowlDiceSequenceVisitor(NodeVisitor):
+
     def __init__(self):
         self.skills = set()
         self.used_skills = set()
@@ -148,10 +157,12 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
         if got_it:
             logger.debug(f"got {result} as desired")
         else:
-            logger.debug(f"got {result} instead of any of {desired_injury_results}")
+            logger.debug(
+                f"got {result} instead of any of {desired_injury_results}")
         return got_it
 
-    def check_block_dice(self, desired_block_results, n_block_dice, is_red_dice):
+    def check_block_dice(self, desired_block_results, n_block_dice,
+                         is_red_dice):
         dice_rolls = []
         for i in range(n_block_dice):
             dice_rolls.append(random.choice(BLOCK_DICE_RESULTS))
@@ -220,9 +231,11 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
             block_dice_value = int(block_dice.text.strip()[:-1])
             is_red_dice = block_dice_value < 0
             n_block_dice = abs(block_dice_value)
-            if not self.check_block_dice(desired_block_results, n_block_dice, is_red_dice):
+            if not self.check_block_dice(desired_block_results, n_block_dice,
+                                         is_red_dice):
                 if self.try_use_reroll():
-                    if not self.check_block_dice(desired_block_results, n_block_dice, is_red_dice):
+                    if not self.check_block_dice(desired_block_results,
+                                                 n_block_dice, is_red_dice):
                         self.result = False
                 else:
                     self.result = False
@@ -231,8 +244,10 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 # optional: armor_break
                 try:
                     logger.debug("Checking armor break")
-                    armor_break_node  = node.children[3]
-                    armor_break_value = int(armor_break_node.children[0].children[1].children[0].text.strip())
+                    armor_break_node = node.children[3]
+                    armor_break_value = int(
+                        armor_break_node.children[0].children[1].children[0].
+                        text.strip())
                     logger.debug(armor_break_value)
                     if not self.do_armor_break_roll(armor_break_value):
                         self.result = False
@@ -243,12 +258,16 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
                 if self.result:
                     try:
                         logger.debug("Checking injury")
-                        injury_results_node = node.children[3].children[0].children[1].children[2]
+                        injury_results_node = node.children[3].children[
+                            0].children[1].children[2]
                         desired_injury_results = []
                         for r in injury_results_node.children:
-                            desired_injury_results.append(r.children[0].expr_name)
+                            desired_injury_results.append(
+                                r.children[0].expr_name)
                         if desired_injury_results:
-                            logger.debug(f"Desired Injury Results: {desired_injury_results}")
+                            logger.debug(
+                                f"Desired Injury Results: {desired_injury_results}"
+                            )
                             if not self.do_injury_roll(desired_injury_results):
                                 self.result = False
                     except:
@@ -258,7 +277,8 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
             logger.debug("Fouling")
             try:
                 logger.debug("Checking armor break")
-                armor_break_value = int(node.children[2].children[0].children[1].children[0].text.strip())
+                armor_break_value = int(node.children[2].children[0].
+                                        children[1].children[0].text.strip())
                 logger.debug(armor_break_value)
                 if not self.do_armor_break_roll(armor_break_value):
                     self.result = False
@@ -269,20 +289,24 @@ class BloodBowlDiceSequenceVisitor(NodeVisitor):
             if self.result:
                 try:
                     logger.debug("Injuring")
-                    injury_results_node = node.children[2].children[0].children[1].children[2]
+                    injury_results_node = node.children[2].children[0].children[
+                        1].children[2]
                     desired_injury_results = []
                     for r in injury_results_node.children:
                         desired_injury_results.append(r.children[0].expr_name)
                     if desired_injury_results:
                         logger.debug("Checking injury")
-                        logger.debug(f"Desired Injury Results: {desired_injury_results}")
+                        logger.debug(
+                            f"Desired Injury Results: {desired_injury_results}")
                         if not self.do_injury_roll(desired_injury_results):
                             self.result = False
                 except:
                     pass
         return True
 
+
 class BloodBowlProbabilityComputer:
+
     def __init__(self, test_count, seed=None):
         self.test_count = test_count
         self.seed = seed
@@ -313,6 +337,7 @@ class BloodBowlProbabilityComputer:
         success_probability = n_successes / n_total
         logger.info(f"Success Probability {msg}")
         return success_probability
+
 
 @click.command()
 @click.argument('tokens')
