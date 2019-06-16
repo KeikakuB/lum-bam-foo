@@ -15,7 +15,7 @@ CLI to calculate probabilities of performing specific sequences of actions in Bl
 `lum_bam_foo "[foul av 7 ko cas]"` -> Foul a player with armor value 7 and get a KO or CAS result on the injury roll.
 
 # Grammar
-``` python
+```
 expr = (team_reroll ws? comma ws?)? sequences
 sequences = sequence (ws? comma ws? sequences)*
 sequence = skills? rolls
